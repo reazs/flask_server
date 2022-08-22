@@ -1,7 +1,7 @@
 from truescope import app
-from flask import request, jsonify, redirect, url_for
+from flask import request, jsonify, redirect, url_for, render_template
 from truescope.hadiths import Hadiths
-from truescope.models import User, BlogPost, Question, QuestionAnswer, QuestionAnswerComment, FavoriteSurahs, \
+from truescope.models import User, Question, QuestionAnswer, QuestionAnswerComment, FavoriteSurahs, \
     FavoriteHadith
 from truescope.quran import AlQuran
 from truescope import db
@@ -9,6 +9,10 @@ from truescope import bcrypt
 import datetime
 from flask_login import current_user, login_user, logout_user
 from truescope import login_manager
+from functools import wraps
+from flask import abort
+from flask import session
+from flask_admin.contrib.sqla import ModelView
 
 _hadiths = Hadiths()
 _al_quran = AlQuran()
@@ -16,9 +20,38 @@ now = datetime.datetime.now()
 date = now.strftime("%m/%d/%Y")
 
 
+def admin_only(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # If id is not 1 then return abort with 403 error
+
+        if current_user.id != 1:
+            return abort(403)
+        # Otherwise continue with the route function
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+
+@app.route("/login_admin", methods=["POST", "GET"])
+def login_admin():
+    if request.method == "POST":
+        email = request.form.get("email")
+        password = request.form.get("password")
+        user = User.query.filter_by(email=email).first()
+        if user:
+            if bcrypt.check_password_hash(user.password, password):
+                login_user(user)
+                return "your logged in"
+            else:
+                return abort(403)
+
+    return render_template("admin_login.html")
 
 
 @app.route("/")
@@ -143,84 +176,6 @@ def logout():
             "status": "ok"
         }
     )
-
-
-@app.route("/create_post", methods=["POST"])
-def create_post():
-    email = request.args.get("email")
-    user = User.query.filter_by(email=email).first()
-    new_post = BlogPost(
-        title=request.args.get('title'),
-        img_url=request.args.get('img_url'),
-        date=date,
-        content=request.args.get('content'),
-        user=user
-
-    )
-    db.session.add(new_post)
-    db.session.commit()
-
-    return jsonify({
-        "code": 200,
-        "status": "ok",
-        "create": "success"
-    })
-
-
-@app.route("/view_post", methods=["GET"])
-def view_post():
-    id = int(request.args.get("id"))
-    post = BlogPost.query.filter_by(id=id).first()
-    json_post = {
-        "id": post.id,
-        "title": post.title,
-        "content": post.content,
-        "date": post.date,
-        "email": post.user.email,
-        "img_url": post.img_url,
-    }
-
-    return jsonify(
-        {
-            "status": "ok",
-            "code": 200,
-            "body": json_post
-        }
-    )
-
-
-@app.route("/all_posts", methods=["GET"])
-def all_posts():
-    blog_posts = BlogPost.query.all()
-    posts = []
-    for post in blog_posts:
-        posts.append({
-            "id": post.id,
-            "title": post.title,
-            "content": post.content,
-            "date": post.date,
-            "email": post.user.email,
-            "img_url": post.img_url,
-
-        })
-    return jsonify({
-        "status": "ok",
-        "code": 200,
-        "body": posts[::-1]
-    })
-
-
-@app.route("/post_delete")
-def post_delete():
-    id = request.args.get("id")
-    post = BlogPost.query.filter_by(id=id).first()
-    db.session.delete(post)
-    db.session.commit()
-    return jsonify({
-        "status": "ok",
-        "code": 200,
-        "delete": "success"
-    })
 
 
 @app.route("/create_question", methods=["POST"])

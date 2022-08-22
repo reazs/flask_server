@@ -1,5 +1,18 @@
 from truescope import db
-from flask_login import  UserMixin
+from flask_login import UserMixin, current_user
+from truescope import admin
+from flask_admin.contrib.sqla import ModelView
+from flask import abort
+
+
+class ModelSecureView(ModelView):
+    def is_accessible(self):
+        if current_user.is_authenticated is False:
+            return abort(403)
+        elif current_user.id == 1:
+            return True
+        else:
+            return abort(403)
 
 
 class User(db.Model, UserMixin):
@@ -75,5 +88,12 @@ class FavoriteHadith(db.Model):
     narrator = db.Column(db.String, nullable=False)
     content = db.Column(db.String, nullable=False)
 
+
+admin.add_view(ModelSecureView(FavoriteHadith, db.session))
+admin.add_view(ModelSecureView(FavoriteSurahs, db.session))
+admin.add_view(ModelSecureView(Question, db.session))
+admin.add_view(ModelSecureView(QuestionAnswer, db.session))
+admin.add_view(ModelSecureView(QuestionAnswerComment, db.session))
+admin.add_view(ModelSecureView(User, db.session))
 
 db.create_all()
