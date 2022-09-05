@@ -20,6 +20,7 @@ class User(db.Model, UserMixin):
     f_name = db.Column(db.String, nullable=False)
     l_name = db.Column(db.String, nullable=False)
     email = db.Column(db.String, nullable=False, unique=True)
+    verified = db.Column(db.Boolean, default=False)
     password = db.Column(db.String, nullable=False)
     posts = db.relationship('BlogPost', backref='user')
     questions = db.relationship("Question", backref="user")
@@ -42,8 +43,17 @@ class Question(db.Model):
     name = db.Column(db.String, nullable=False)
     question = db.Column(db.String, nullable=False)
     date = db.Column(db.String, nullable=False)
+    total_like = db.Column(db.Integer, default=0)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     answers = db.relationship("QuestionAnswer", backref="question")
+    likes = db.relationship("QuestionLike", backref="question")
+
+
+class QuestionLike(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String, nullable=False, unique=True)
+    is_liked = db.Column(db.Boolean, default=False)
+    question_id = db.Column(db.Integer, db.ForeignKey("question.id"))
 
 
 class QuestionAnswer(db.Model):
